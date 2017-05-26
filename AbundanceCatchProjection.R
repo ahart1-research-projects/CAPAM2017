@@ -1,4 +1,4 @@
-AgeBasedMSY <- function(data, ZData=NULL, NAAData=NULL, NAgeClass=NULL, WeightAtAge=NULL, MaturityAtAge=NULL, CAAData=NULL, Nyr=NULL, RecruitOption="Option1", StdDev=NULL, DegFreedom=NULL){
+AgeBasedMSY <- function(data, ZData=NULL, NAAData=NULL, NAgeClass=NULL, WeightAtAge=NULL, MaturityAtAge=NULL, MortalityAtAge=NULL, CAAData=NULL, Nyr=NULL, RecruitOption="Option1", StdDev=NULL, DegFreedom=NULL){
   # This function projects Abundance-at-age and Catch-at-age forward in time
   # Args:
        # ZData: Matrix of mortality-at-age
@@ -22,21 +22,15 @@ AgeBasedMSY <- function(data, ZData=NULL, NAAData=NULL, NAgeClass=NULL, WeightAt
   CAA <- CAAData
   ZMortality <- ZData
   # Set up storage 
-  NAAProjection <- rep(NA, NAgeClass)
+  NAAProjection <- rep(NA, NAgeClass) 
+  names(NAAProjection) <- colnames(NAA)
   SSBProjection <- rep(NA, Nyr)
   Recruitment <- rep(NA, Nyr)
-  CAAProjection <- rep(NA, NAgeClass)
+  CAAProjection <- rep(NA, NAgeClass) 
+  names(CAAProjection) <- colnames(NAA)
   
   ########## Forward Projection ##########
   for(t in 1:Nyr){
-    #Define SSB for each year(t) and age(a)
-  #   if(RecruitOption=="Option"){
-  #     for(a in 1:Nyr){
-  #       SSBProjection[t+1] <- NAAProjection[t,a]*MaturityAtAge[t, a]*WeightAtAge[t, a]
-  #     }
-  #   Recruitment[t+1] <- b1_par*SSB[t]/(SSB[t]+b2_par)
-  # } else if(RecruitOption=="Option2"){} #??????????
-  
     if(RecruitOption=="Option1"){
       Recruitment[t] <- rnorm(1, mean = NAA[nrow(NAA),1], sd=StdDev) # Random walk
     } else if(RecruitOption=="Option2"){
@@ -46,21 +40,22 @@ AgeBasedMSY <- function(data, ZData=NULL, NAAData=NULL, NAgeClass=NULL, WeightAt
     }
     
     #Set age 1 abundance equal to recruitment based on RecruitmentOption chosen
-    NAAProjection[t, 1] <- Recruitment[t]
+    NAAProjection[1] <- Recruitment[t]
     
     # NEEd to update ZMortality also!!!???????
-    UpdateZ <- # Calculation here ???????
+    UpdateZ <- rep(0.2, NAgeClass)
+    #UpdateZ <- # Calculation here ???????
     ZMortality <- rbind(ZMortality, UpdateZ)
     
     #Calculate abundance-at-age for year 2-Nyr
     for(a in 2:NAgeClass){
-      NAAProjection[t, a]<-NAA[nrow(NAA), a-1]*exp(-ZMortality[nrow(ZMortality), a-1])
+      NAAProjection[a]<-NAA[nrow(NAA), a-1]*exp(-ZMortality[nrow(ZMortality), a-1])
     }
     NAA <- rbind(NAA, NAAProjection)
     
     # Catch-at-age projection
     for(a in 1:NAgeClass){
-      CAAProjection[t,a] <- NAAProjection[t, a]*F_par[t, a]*(1-exp(-ZMortality[t, a]))/ZMortality[t,a]
+      CAAProjection[a] <- NAAProjection[a]*MortalityAtAge[t, a]*(1-exp(-ZMortality[t, a]))/ZMortality[t,a]
     }
     CAA <- rbind(CAA, CAAProjection)
   }
@@ -73,4 +68,16 @@ AgeBasedMSY <- function(data, ZData=NULL, NAAData=NULL, NAgeClass=NULL, WeightAt
 
 ################### Run this function ##########
 ZDataFile <- read.csv("Z.csv")
+ZDataFile <- ZDataFile[,-1]
 NAADataFile <- read.csv("NAA_mat.csv")
+NAADataFile <- NAADataFile[,-1]
+MaturityFile <- read.csv("maturity.csv")
+MaturityFile <- MaturityFile[,-1]
+MortalityFile <- read.csv("mort.csv")
+MortalityFile <- MortalityFile[,-1]
+WeightFile <- read.csv("waa.csv")
+WeightFile <- WeightFile[,-1]
+CAADataFile <- read.csv("CAA_mat.csv")
+CAADataFile <- CAADataFile[,-1]
+
+TestOption2 <- AgeBasedMSY(ZData = ZDataFile, NAAData = NAADataFile, NAgeClass = 9, WeightAtAge = WeightFile, MaturityAtAge = MaturityFile, CAAData = CAADataFile, Nyr = 5, RecruitOption = "Option2", StdDev=0.6160962, MortalityAtAge=MortalityFile)
